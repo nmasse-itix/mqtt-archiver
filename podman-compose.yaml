@@ -1,0 +1,22 @@
+version: '3.1'
+services:
+  minio:
+    image: docker.io/minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./.podman-compose/minio-data:/data:z
+    restart: always
+    command: [ "server", "/data", "--console-address", ":9001" ]
+    environment:
+      MINIO_ROOT_USER: dev
+      MINIO_ROOT_PASSWORD: secret123
+      
+  mosquitto:
+    image: docker.io/library/eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./.podman-compose/mosquitto-data:/mosquitto/data:z
+      - ./.podman-compose/mosquitto-config:/mosquitto/config:z

@@ -1,0 +1,13 @@
+mqtt:
+  broker: tcp://localhost:1883
+  username: dev
+  password: secret
+  timeout: 5s
+  gracePeriod: 30s
+workingDir: /tmp
+s3:
+  endpoint: localhost:9000
+  accessKey: dev
+  secretKey: secret123
+  ssl: false
+  bucket: mqtt
