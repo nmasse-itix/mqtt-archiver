@@ -37,7 +37,30 @@ var archiveCmd = &cobra.Command{
 	Short: "Archive MQTT events from the broker to S3",
 	Long:  `TODO`,
 	Run: func(cmd *cobra.Command, args []string) {
-		logger.Println("Archiving...")
+		ok := true
+		if viper.GetString("s3.endpoint") == "" {
+			logger.Println("No S3 endpoint defined in configuration")
+			ok = false
+		}
+		if viper.GetString("s3.accessKey") == "" {
+			logger.Println("No S3 access key defined in configuration")
+			ok = false
+		}
+		if viper.GetString("s3.secretKey") == "" {
+			logger.Println("No S3 secret key defined in configuration")
+			ok = false
+		}
+		if viper.GetString("s3.bucket") == "" {
+			logger.Println("No S3 bucket name defined in configuration")
+			ok = false
+		}
+		if viper.GetString("mqtt.broker") == "" {
+			logger.Println("No MQTT broker defined in configuration")
+			ok = false
+		}
+		if !ok {
+			os.Exit(1)
+		}
 
 		archiver := mqttArchiver.Archiver{
 			S3Config: mqttArchiver.S3Config{
@@ -64,6 +87,7 @@ var archiveCmd = &cobra.Command{
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+		logger.Println("Starting the archiving process...")
 		err := archiver.StartArchive()
 		if err != nil {
 			logger.Fatalln(err)
@@ -80,13 +104,7 @@ var archiveCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(archiveCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// archiveCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// archiveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Each main feature gets its own default client id to prevent the replay
+	// feature from colliding with the archive function
+	viper.SetDefault("mqtt.clientId", "mqtt-archiver-archive")
 }

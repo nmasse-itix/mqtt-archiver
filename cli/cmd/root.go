@@ -55,10 +55,11 @@ func init() {
 	logger = log.New(os.Stderr, "", 0)
 
 	// Set default configuration
-	viper.SetDefault("mqtt.clientId", "mqtt-archiver")
 	viper.SetDefault("mqtt.timeout", 30*time.Second)
 	viper.SetDefault("mqtt.gracePeriod", 5*time.Second)
 	viper.SetDefault("subscribePattern", "#")
+	viper.SetDefault("s3.ssl", true)
+	viper.SetDefault("workingDir", ".")
 
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $PWD/mqtt-archiver.yaml)")
