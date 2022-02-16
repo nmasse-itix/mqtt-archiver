@@ -3,8 +3,8 @@ mqtt:
   username: dev
   password: secret
   timeout: 5s
-  gracePeriod: 30s
-workingDir: /tmp
+  gracePeriod: 2s
+workingDir: .podman-compose/mqtt-archiver/
 s3:
   endpoint: localhost:9000
   accessKey: dev
