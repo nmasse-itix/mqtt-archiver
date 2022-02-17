@@ -31,6 +31,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -67,6 +68,8 @@ type Archiver struct {
 	WorkingDir       string             // location to store JSON files
 	Logger           log.Logger         // a logger
 	SubscribePattern string             // the pattern (ie. "#") to subscribe to
+	FilterRegex      string             // topics matching this regex will filtered out
+	filter           *regexp.Regexp     // compiled regex: topics matching this regex will filtered out
 	currentFilename  string             // the current JSON filename
 	wg               sync.WaitGroup     // a wait group to keep track of each running go routine
 	client           mqtt.Client        // the MQTT client
@@ -84,6 +87,7 @@ const (
 func (archiver *Archiver) StartArchive() error {
 	archiver.done = make(chan bool)
 	archiver.eventLog = make(chan EventLogEntry, 10)
+	archiver.filter = regexp.MustCompile(archiver.FilterRegex)
 
 	// connect to MQTT server
 	SetMqttLogger(&archiver.Logger)
@@ -388,12 +392,17 @@ func (archiver *Archiver) openLogFile(fileName string) (*os.File, error) {
 // processMessage is the callback routine called by the MQTT library to process
 // events.
 func (archiver *Archiver) processMessage(c mqtt.Client, m mqtt.Message) {
+	archiver.wg.Add(1)
+	defer archiver.wg.Done()
+
 	if m.Retained() {
 		return
 	}
 
-	archiver.wg.Add(1)
-	defer archiver.wg.Done()
+	if archiver.filter.Match([]byte(m.Topic())) {
+		return
+	}
+
 	entry := EventLogEntry{
 		Version:   1,
 		Timestamp: time.Now().UTC(),

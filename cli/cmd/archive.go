@@ -80,6 +80,7 @@ var archiveCmd = &cobra.Command{
 			},
 			SubscribePattern: viper.GetString("subscribePattern"),
 			WorkingDir:       viper.GetString("workingDir"),
+			FilterRegex:      viper.GetString("exclude"),
 			Logger:           *logger,
 		}
 

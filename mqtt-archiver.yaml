@@ -5,6 +5,7 @@ mqtt:
   timeout: 5s
   gracePeriod: 2s
 workingDir: .podman-compose/mqtt-archiver/
+exclude: ^test
 s3:
   endpoint: localhost:9000
   accessKey: dev
