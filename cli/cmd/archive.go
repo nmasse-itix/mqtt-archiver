@@ -81,7 +81,7 @@ var archiveCmd = &cobra.Command{
 			SubscribePattern: viper.GetString("subscribePattern"),
 			WorkingDir:       viper.GetString("workingDir"),
 			FilterRegex:      viper.GetString("exclude"),
-			Logger:           *logger,
+			Logger:           logger,
 		}
 
 		// trap SIGINT and SIGTEM to gracefully stop

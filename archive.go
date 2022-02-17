@@ -66,7 +66,7 @@ type Archiver struct {
 	S3Config         S3Config           // credentials to connect to S3
 	MqttConfig       MqttConfig         // credentials to connect to MQTT
 	WorkingDir       string             // location to store JSON files
-	Logger           log.Logger         // a logger
+	Logger           *log.Logger        // a logger
 	SubscribePattern string             // the pattern (ie. "#") to subscribe to
 	FilterRegex      string             // topics matching this regex will filtered out
 	filter           *regexp.Regexp     // compiled regex: topics matching this regex will filtered out
@@ -90,7 +90,7 @@ func (archiver *Archiver) StartArchive() error {
 	archiver.filter = regexp.MustCompile(archiver.FilterRegex)
 
 	// connect to MQTT server
-	SetMqttLogger(&archiver.Logger)
+	SetMqttLogger(archiver.Logger)
 	archiver.Logger.Println("Connecting to MQTT server...")
 	var err error
 	archiver.client, err = NewMqttClient(archiver.MqttConfig)
