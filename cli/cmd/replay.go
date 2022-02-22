@@ -31,15 +31,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-// archiveCmd represents the archive command
-var archiveCmd = &cobra.Command{
-	Use:   "archive",
-	Short: "Archive MQTT events from the broker to S3",
+// listCmd represents the list command
+var replayCmd = &cobra.Command{
+	Use:   "replay",
+	Short: "Replays event from archives to MQTT broker",
 	Long:  `TODO`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Each main feature gets its own default client id to prevent the replay
 		// feature from colliding with the archive function
-		viper.SetDefault("mqtt.clientId", "mqtt-archiver-archive")
+		viper.SetDefault("mqtt.clientId", "mqtt-archiver-replay")
 
 		ok := true
 		if viper.GetString("s3.endpoint") == "" {
@@ -62,11 +62,18 @@ var archiveCmd = &cobra.Command{
 			logger.Println("No MQTT broker defined in configuration")
 			ok = false
 		}
+		if from.time.IsZero() {
+			logger.Println("Please specify the beginning of the replay period")
+			ok = false
+		}
+		if to.time.IsZero() {
+			to.Set("now")
+		}
 		if !ok {
 			os.Exit(1)
 		}
 
-		archiver := mqttArchiver.Archiver{
+		config := mqttArchiver.ReplayerConfig{
 			S3Config: mqttArchiver.S3Config{
 				Endpoint:   viper.GetString("s3.endpoint"),
 				AccessKey:  viper.GetString("s3.accessKey"),
@@ -82,30 +89,37 @@ var archiveCmd = &cobra.Command{
 				Timeout:     viper.GetDuration("mqtt.timeout"),
 				GracePeriod: viper.GetDuration("mqtt.gracePeriod"),
 			},
-			SubscribePattern: viper.GetString("subscribePattern"),
-			WorkingDir:       viper.GetString("workingDir"),
-			FilterRegex:      viper.GetString("exclude"),
-			Logger:           logger,
+			WorkingDir:  viper.GetString("workingDir"),
+			Logger:      logger,
+			TopicPrefix: prefix,
+			From:        from.time,
+			To:          to.time,
 		}
-
-		// trap SIGINT and SIGTEM to gracefully stop
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-		logger.Println("Starting the archiving process...")
-		err := archiver.StartArchive()
+		replayer, err := mqttArchiver.NewReplayer(config)
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		logger.Println("Ready!")
 
-		// Wait for SIGTERM or SIGINT
-		sig := <-sigs
-		logger.Printf("Received signal %s", sig)
-		archiver.StopArchive()
+		go func() {
+			// trap SIGINT and SIGTEM to gracefully stop
+			sigs := make(chan os.Signal, 1)
+			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+			// Wait for SIGTERM or SIGINT
+			sig := <-sigs
+			logger.Printf("Received signal %s", sig)
+			replayer.StopReplay()
+		}()
+
+		logger.Println("Starting the replay process...")
+		replayer.StartReplay()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(archiveCmd)
+	replayCmd.Flags().Var(&from, "from", "beginning of replay period")
+	replayCmd.Flags().Var(&to, "to", "end of replay period")
+	replayCmd.Flags().StringVarP(&prefix, "prefix", "p", "", "prefix MQTT topic with the supplied string")
+
+	rootCmd.AddCommand(replayCmd)
 }

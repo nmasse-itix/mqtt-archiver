@@ -80,6 +80,9 @@ type Archiver struct {
 const (
 	// JSON filename format (one file per day)
 	logfileFormat = "20060102.json"
+
+	// JSON file rotation interval
+	rotationInterval = 24 * time.Hour
 )
 
 // StartArchive starts the archiving process. It is not safe to call
@@ -93,7 +96,7 @@ func (archiver *Archiver) StartArchive() error {
 	SetMqttLogger(archiver.Logger)
 	archiver.Logger.Println("Connecting to MQTT server...")
 	var err error
-	archiver.client, err = NewMqttClient(archiver.MqttConfig)
+	archiver.client, err = NewMqttClient(archiver.MqttConfig, false)
 	if err != nil {
 		return err
 	}

@@ -22,25 +22,20 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 
 	mqttArchiver "github.com/nmasse-itix/mqtt-archiver"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// archiveCmd represents the archive command
-var archiveCmd = &cobra.Command{
-	Use:   "archive",
-	Short: "Archive MQTT events from the broker to S3",
+// listCmd represents the list command
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List available archives",
 	Long:  `TODO`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Each main feature gets its own default client id to prevent the replay
-		// feature from colliding with the archive function
-		viper.SetDefault("mqtt.clientId", "mqtt-archiver-archive")
-
 		ok := true
 		if viper.GetString("s3.endpoint") == "" {
 			logger.Println("No S3 endpoint defined in configuration")
@@ -58,15 +53,18 @@ var archiveCmd = &cobra.Command{
 			logger.Println("No S3 bucket name defined in configuration")
 			ok = false
 		}
-		if viper.GetString("mqtt.broker") == "" {
-			logger.Println("No MQTT broker defined in configuration")
+		if from.time.IsZero() {
+			logger.Println("Please specify the beginning of the replay period")
 			ok = false
+		}
+		if to.time.IsZero() {
+			to.Set("now")
 		}
 		if !ok {
 			os.Exit(1)
 		}
 
-		archiver := mqttArchiver.Archiver{
+		config := mqttArchiver.ReplayerConfig{
 			S3Config: mqttArchiver.S3Config{
 				Endpoint:   viper.GetString("s3.endpoint"),
 				AccessKey:  viper.GetString("s3.accessKey"),
@@ -74,38 +72,43 @@ var archiveCmd = &cobra.Command{
 				UseSSL:     viper.GetBool("s3.ssl"),
 				BucketName: viper.GetString("s3.bucket"),
 			},
-			MqttConfig: mqttArchiver.MqttConfig{
-				BrokerURL:   viper.GetString("mqtt.broker"),
-				Username:    viper.GetString("mqtt.username"),
-				Password:    viper.GetString("mqtt.password"),
-				ClientID:    viper.GetString("mqtt.clientId"),
-				Timeout:     viper.GetDuration("mqtt.timeout"),
-				GracePeriod: viper.GetDuration("mqtt.gracePeriod"),
-			},
-			SubscribePattern: viper.GetString("subscribePattern"),
-			WorkingDir:       viper.GetString("workingDir"),
-			FilterRegex:      viper.GetString("exclude"),
-			Logger:           logger,
+			WorkingDir: viper.GetString("workingDir"),
+			Logger:     logger,
+			Follow:     follow,
+			From:       from.time,
+			To:         to.time,
 		}
-
-		// trap SIGINT and SIGTEM to gracefully stop
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-		logger.Println("Starting the archiving process...")
-		err := archiver.StartArchive()
+		replayer, err := mqttArchiver.NewReplayer(config)
 		if err != nil {
 			logger.Fatalln(err)
 		}
-		logger.Println("Ready!")
 
-		// Wait for SIGTERM or SIGINT
-		sig := <-sigs
-		logger.Printf("Received signal %s", sig)
-		archiver.StopArchive()
+		files := make(chan mqttArchiver.Archive)
+		errors := make(chan error)
+		eol := make(chan struct{})
+
+		go replayer.ListArchives(files, errors, eol)
+
+		for {
+			select {
+			case <-eol:
+				return
+			case err := <-errors:
+				logger.Println(err)
+			case file := <-files:
+				file.Reader.Close()
+				fmt.Println(file.FileName)
+			}
+		}
+
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(archiveCmd)
+	listCmd.Flags().BoolVarP(&follow, "follow", "f", false, "list archives as they are produced")
+	listCmd.Flags().Var(&from, "from", "beginning of list period")
+	listCmd.Flags().Var(&to, "to", "end of list period")
+
+	rootCmd.AddCommand(listCmd)
+
 }

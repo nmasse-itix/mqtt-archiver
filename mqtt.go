@@ -56,7 +56,7 @@ func SetMqttLogger(logger *log.Logger) {
 }
 
 // NewMqttClient creates a new MQTT client and connects to the broker
-func NewMqttClient(config MqttConfig) (mqtt.Client, error) {
+func NewMqttClient(config MqttConfig, clean bool) (mqtt.Client, error) {
 	if config.BrokerURL == "" {
 		return nil, fmt.Errorf("MQTT broker URL is empty")
 	}
@@ -67,7 +67,7 @@ func NewMqttClient(config MqttConfig) (mqtt.Client, error) {
 	opts.SetConnectRetry(true)
 	opts.SetConnectRetryInterval(config.Timeout)
 	opts.SetOrderMatters(false)
-	opts.SetCleanSession(false)
+	opts.SetCleanSession(clean)
 	opts.SetClientID(config.ClientID)
 	if config.Username != "" && config.Password != "" {
 		opts.SetUsername(config.Username)

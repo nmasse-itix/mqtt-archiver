@@ -31,6 +31,31 @@ import (
 	"github.com/spf13/viper"
 )
 
+type timeArg struct {
+	time time.Time
+}
+
+func (t *timeArg) String() string {
+	return t.time.String()
+}
+
+func (t *timeArg) Set(val string) error {
+	var err error
+	if val == "now" {
+		t.time = time.Now().UTC()
+	} else {
+		t.time, err = time.ParseInLocation("2006-01-02T15:04:05", val, time.UTC)
+	}
+	return err
+}
+
+func (t *timeArg) Type() string {
+	return "time"
+}
+
+var follow bool = false
+var from, to timeArg
+var prefix string
 var cfgFile string
 var logger *log.Logger
 
